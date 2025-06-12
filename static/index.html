@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>剪贴板翻译历史</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <h1>剪贴板翻译历史</h1>
+    <div class="controls">
+        <button id="refreshBtn">刷新剪贴板</button>
+        <button id="clearBtn">清空历史</button>
+        <a href="/config.html" class="settings-btn">⚙️ 设置</a>
+    </div>
+    <div class="container">
+        <div class="history-list" id="historyList"></div>
+        <div class="content-panel">
+            <div class="text-panel">
+                <h2>原文 <span id="translationDirection" class="direction-tag">自动检测</span> <button class="copy-btn" id="copyOriginal">复制</button></h2>
+                <div id="originalText"></div>
+            </div>
+            <div class="text-panel">
+                <h2>译文 <button class="copy-btn" id="copyTranslated">复制</button></h2>
+                <div id="translatedText"></div>
+            </div>
+        </div>
+    </div>
+    <script src="/js/app.js"></script>
+</body>
+</html>

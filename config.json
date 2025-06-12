@@ -1,0 +1,36 @@
+{
+  "hotkeys": {
+    "showHide": {
+      "modifiers": [
+        "control",
+        "shift"
+      ],
+      "key": ""
+    },
+    "translate": {
+      "modifiers": [
+        "control",
+        "alt"
+      ],
+      "key": "t"
+    }
+  },
+  "api": {
+    "gemini_key": "",
+    "use_env_key": true
+  },
+  "translation": {
+    "target_language": "zh-CN",
+    "auto_translate": false,
+    "show_notification": true
+  },
+  "ui": {
+    "port": 8080,
+    "start_minimized": false,
+    "theme": "dark"
+  },
+  "system": {
+    "auto_start": true,
+    "max_history_items": 100
+  }
+}
