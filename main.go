@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"unsafe"
 
 	"github.com/atotto/clipboard"
+	"github.com/gin-gonic/gin"
 	"github.com/go-toast/toast"
 	gemini "github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
@@ -25,18 +25,18 @@ import (
 
 // 历史记录项
 type HistoryItem struct {
-	Original   string `json:"original"`
-	Translated string `json:"translated"`
-	Timestamp  string `json:"timestamp"`
-	ID         string `json:"id"`
-	Direction  string `json:"direction"` // 新增：翻译方向
+    Original   string `json:"original"`
+    Translated string `json:"translated"`
+    Timestamp  string `json:"timestamp"`
+    ID         string `json:"id"`
+    Direction  string `json:"direction"` // 翻译方向
 }
 
 var (
-	historyItems  = make([]*HistoryItem, 0)
-	historyMutex  sync.RWMutex
-	geminiClient  *gemini.Client
-	staticDirPath string // 全局变量存储静态文件目录路径
+    historyItems  = make([]*HistoryItem, 0)
+    historyMutex  sync.RWMutex
+    geminiClient  *gemini.Client
+    staticDirPath string // 全局变量存储静态文件目录路径
 )
 
 func translateWithGemini(ctx context.Context, client *gemini.Client, text string) (string, error) {
@@ -126,7 +126,7 @@ func registerHotKey() bool {
     procRegisterHotKey := user32.NewProc("RegisterHotKey")
     ret, _, _ := procRegisterHotKey.Call(
         0,
-        uintptr(constants.HOTKEY_ID), // 使用常量
+        uintptr(constants.HOTKEY_ID),
         uintptr(modifiers),
         uintptr(key))
 
@@ -137,7 +137,7 @@ func registerHotKey() bool {
 func unregisterHotKey() {
     user32 := syscall.NewLazyDLL("user32.dll")
     procUnregisterHotKey := user32.NewProc("UnregisterHotKey")
-    procUnregisterHotKey.Call(0, uintptr(constants.HOTKEY_ID)) // 使用常量
+    procUnregisterHotKey.Call(0, uintptr(constants.HOTKEY_ID))
 }
 
 // 触发翻译
@@ -241,109 +241,140 @@ func listenHotkey(ctx context.Context, client *gemini.Client) {
     }
 }
 
-// API处理器
-func apiHandler() http.Handler {
-	mux := http.NewServeMux()
+// 设置Gin路由
+func setupRouter() *gin.Engine {
+    // 设置为发布模式
+    gin.SetMode(gin.ReleaseMode)
 
-	// 获取历史记录
-	mux.HandleFunc("/api/history", func(w http.ResponseWriter, r *http.Request) {
-		historyMutex.RLock()
-		defer historyMutex.RUnlock()
+    // 创建带有默认中间件的路由
+    r := gin.Default()
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(historyItems)
-	})
+    // 日志中间件
+    r.Use(func(c *gin.Context) {
+        // 开始时间
+        start := time.Now()
 
-	// 清空历史记录
-	mux.HandleFunc("/api/clear", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
+        // 处理请求
+        c.Next()
 
-		historyMutex.Lock()
-		historyItems = []*HistoryItem{}
-		historyMutex.Unlock()
+        // 结束时间
+        end := time.Now()
 
-		w.WriteHeader(http.StatusOK)
-	})
+        // 执行时间
+        latency := end.Sub(start)
 
-	// 手动刷新剪贴板
-	mux.HandleFunc("/api/refresh", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
+        // 请求方式
+        reqMethod := c.Request.Method
 
-		// 直接触发翻译
-		go triggerTranslation(context.Background(), geminiClient)
+        // 请求路由
+        reqURI := c.Request.RequestURI
 
-		w.WriteHeader(http.StatusOK)
-	})
+        // 状态码
+        statusCode := c.Writer.Status()
 
-	// 获取配置
-	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			// 返回当前配置
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(config.GetConfig())
-		case http.MethodPost:
-			// 更新配置
-			var newConfig config.Config
-			if err := json.NewDecoder(r.Body).Decode(&newConfig); err != nil {
-				http.Error(w, "Invalid config data", http.StatusBadRequest)
-				return
-			}
+        // 请求IP
+        clientIP := c.ClientIP()
 
-			// 保存旧热键设置以检查是否需要重新注册
-			oldTranslateHotkey := config.GetConfig().Hotkeys["translate"]
+        // 日志格式
+        log.Info("[GIN] %v | %3d | %13v | %15s | %s %s",
+            end.Format("2006/01/02 - 15:04:05"),
+            statusCode,
+            latency,
+            clientIP,
+            reqMethod,
+            reqURI,
+        )
+    })
 
-			// 保存到文件
-			if err := config.SaveConfig(&newConfig); err != nil {
-				http.Error(w, "Failed to save config", http.StatusInternalServerError)
-				return
-			}
+    // API 路由组
+    api := r.Group("/api")
+    {
+        // 获取历史记录
+        api.GET("/history", func(c *gin.Context) {
+            historyMutex.RLock()
+            defer historyMutex.RUnlock()
 
-			// 检查热键是否已更改
-			newTranslateHotkey := config.GetConfig().Hotkeys["translate"]
-			if !newTranslateHotkey.Equals(oldTranslateHotkey) {
-				// 取消注册旧热键
-				unregisterHotKey()
+            c.JSON(http.StatusOK, historyItems)
+        })
 
-				// 注册新热键
-				if !registerHotKey() {
-					log.Error("重新注册热键失败")
-				}
-			}
+        // 清空历史记录
+        api.POST("/clear", func(c *gin.Context) {
+            historyMutex.Lock()
+            historyItems = []*HistoryItem{}
+            historyMutex.Unlock()
 
-			w.WriteHeader(http.StatusOK)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
+            c.Status(http.StatusOK)
+        })
 
-	// 在API处理器中添加健康检查端点
-	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
+        // 手动刷新剪贴板
+        api.POST("/refresh", func(c *gin.Context) {
+            go triggerTranslation(context.Background(), geminiClient)
+            c.Status(http.StatusOK)
+        })
 
-	// 静态文件服务 - 使用全局变量中的路径
-	fileServer := http.FileServer(http.Dir(staticDirPath))
-	mux.Handle("/", fileServer)
+        // 获取配置
+        api.GET("/config", func(c *gin.Context) {
+            c.JSON(http.StatusOK, config.GetConfig())
+        })
 
-	return mux
+        // 更新配置
+        api.POST("/config", func(c *gin.Context) {
+            var newConfig config.Config
+            if err := c.BindJSON(&newConfig); err != nil {
+                c.JSON(http.StatusBadRequest, gin.H{"error": "无效的配置数据"})
+                return
+            }
+
+            // 保存旧热键设置以检查是否需要重新注册
+            oldTranslateHotkey := config.GetConfig().Hotkeys["translate"]
+
+            // 保存到文件
+            if err := config.SaveConfig(&newConfig); err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败"})
+                return
+            }
+
+            // 检查热键是否已更改
+            newTranslateHotkey := config.GetConfig().Hotkeys["translate"]
+            if !newTranslateHotkey.Equals(oldTranslateHotkey) {
+                // 取消注册旧热键
+                unregisterHotKey()
+
+                // 注册新热键
+                if !registerHotKey() {
+                    log.Error("重新注册热键失败")
+                }
+            }
+
+            c.Status(http.StatusOK)
+        })
+
+        // 健康检查端点
+        api.GET("/health", func(c *gin.Context) {
+            c.String(http.StatusOK, "OK")
+        })
+    }
+
+    // 使用 StaticFile 处理单个文件
+    r.StaticFile("/", filepath.Join(staticDirPath, "index.html"))       // 根路径
+    r.StaticFile("/index.html", filepath.Join(staticDirPath, "index.html"))
+    r.StaticFile("/config.html", filepath.Join(staticDirPath, "config.html"))
+
+    // 静态文件服务 - 分别为CSS和JS添加路由
+    r.Static("/css", filepath.Join(staticDirPath, "css"))
+    r.Static("/js", filepath.Join(staticDirPath, "js"))
+
+    return r
 }
 
 // 确保静态文件目录存在
 func ensureStaticDir() {
-	dirs := []string{"static", "static/css", "static/js"}
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			log.Fatal("创建目录失败: %s, %v", dir, err)
-		}
-	}
+    dirs := []string{"static", "static/css", "static/js"}
+    for _, dir := range dirs {
+        if err := os.MkdirAll(dir, 0755); err != nil {
+            log.Fatal("创建目录失败: %s, %v", dir, err)
+        }
+    }
 }
 
 // 检测输入文本的主要语言
@@ -370,7 +401,6 @@ func isChineseText(text string) bool {
     }
 
     // 如果中文字符占比较大，则判断为中文文本
-    // 为了处理混合文本，设一个阈值
     if chineseCount > 0 && chineseCount >= englishCount/2 {
         return true
     }
@@ -406,7 +436,7 @@ func getStaticDir() string {
     return staticDir
 }
 
-// 在main函数中添加端口参数支持
+// main函数
 func main() {
     // 设置工作目录为可执行文件所在目录
     execDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
@@ -423,8 +453,7 @@ func main() {
     staticDirPath = getStaticDir()
     log.Info("使用静态文件目录: %s", staticDirPath)
 
-	// 设置日志格式
-	// 初始化日志配置
+    // 设置日志
     logDir := "./logs"
     logPath := filepath.Join(logDir, "clipboard-translate.log")
 
@@ -441,46 +470,49 @@ func main() {
     if err := config.LoadConfig(); err != nil {
         log.Fatal("加载配置文件失败: %v", err)
     }
-
     log.Info("配置加载成功")
 
-	// 确保静态文件目录存在并创建静态文件
-	ensureStaticDir()
+    // 确保静态文件目录存在
+    ensureStaticDir()
 
-	apiKey := os.Getenv("GEMINI_API_KEY") // 请将你的API Key设置为环境变量
-	if apiKey == "" {
-		apiKey = "AIzaSyDI4Ckz_zJphaYSni4kueDGAuRu1sgfnpM"
-	}
+    // 初始化Gemini客户端
+    apiKey := os.Getenv("GEMINI_API_KEY")
+    if apiKey == "" {
+        apiKey = "AIzaSyDI4Ckz_zJphaYSni4kueDGAuRu1sgfnpM"
+    }
 
-	ctx := context.Background()
-	client, err := gemini.NewClient(ctx, option.WithAPIKey(apiKey))
-	if err != nil {
-		log.Fatal("Gemini client 初始化失败: %v", err)
-	}
-	geminiClient = client
+    ctx := context.Background()
+    client, err := gemini.NewClient(ctx, option.WithAPIKey(apiKey))
+    if err != nil {
+        log.Fatal("Gemini client 初始化失败: %v", err)
+    }
+    geminiClient = client
 
-	// 检查API可用性及模型列表
+    // 检查API可用性及模型列表
     log.Info("正在检查可用的模型...")
-	modelInfo := client.ListModels(ctx)
-	for {
-		m, err := modelInfo.Next()
-		if err != nil {
-			break
-		}
-		log.Info("可用模型: %s", m.Name)
-	}
+    modelInfo := client.ListModels(ctx)
+    for {
+        m, err := modelInfo.Next()
+        if err != nil {
+            break
+        }
+        log.Info("可用模型: %s", m.Name)
+    }
 
     // 使用配置中的端口
     port := config.GetConfig().UI.Port
 
     // 启动热键监听
-	go listenHotkey(ctx, client)
+    go listenHotkey(ctx, client)
 
-	// 启动Web服务器
-	log.Info("启动Web服务器，端口 %d...", port)
-	log.Info("请访问 http://localhost:%d 查看剪贴板翻译历史", port)
-	log.Info("按 Ctrl+Alt+T 触发翻译，将自动翻译当前剪贴板内容")
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), apiHandler()); err != nil {
-		log.Fatal("启动服务器失败: %v", err)
-	}
+    // 设置路由
+    router := setupRouter()
+
+    // 启动Web服务器
+    log.Info("启动Web服务器，端口 %d...", port)
+    log.Info("请访问 http://localhost:%d 查看剪贴板翻译历史", port)
+    log.Info("按 Ctrl+Alt+T 触发翻译，将自动翻译当前剪贴板内容")
+    if err := router.Run(fmt.Sprintf(":%d", port)); err != nil {
+        log.Fatal("启动服务器失败: %v", err)
+    }
 }
