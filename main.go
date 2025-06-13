@@ -465,7 +465,7 @@ func main() {
     // 初始化Gemini客户端
     apiKey := os.Getenv("GEMINI_API_KEY")
     if apiKey == "" {
-        apiKey = "AIzaSyDI4Ckz_zJphaYSni4kueDGAuRu1sgfnpM"
+        apiKey = ""
     }
 
     ctx := context.Background()
