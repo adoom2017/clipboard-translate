@@ -88,20 +88,30 @@ document.getElementById('refreshBtn').addEventListener('click', () => {
         });
 });
 
-// 复制原文
+// 添加到 app.js 末尾
+function showToast(message) {
+  const toast = document.getElementById('copyToast');
+  toast.textContent = message;
+  toast.classList.add('show');
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2000);
+}
+
+// 修改复制按钮的事件处理
 document.getElementById('copyOriginal').addEventListener('click', () => {
-    const originalText = document.getElementById('originalText').textContent;
-    if (originalText) {
-        copyTextToClipboard(originalText, document.getElementById('copyOriginal'));
-    }
+  const text = document.getElementById('originalText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('已复制原文到剪贴板');
+  });
 });
 
-// 复制译文
 document.getElementById('copyTranslated').addEventListener('click', () => {
-    const translatedText = document.getElementById('translatedText').textContent;
-    if (translatedText) {
-        copyTextToClipboard(translatedText, document.getElementById('copyTranslated'));
-    }
+  const text = document.getElementById('translatedText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('已复制译文到剪贴板');
+  });
 });
 
 // 初始加载

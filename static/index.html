@@ -1,30 +1,77 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>剪贴板翻译历史</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0">
 </head>
 <body>
-    <h1>剪贴板翻译历史</h1>
-    <div class="controls">
-        <button id="refreshBtn">刷新剪贴板</button>
-        <button id="clearBtn">清空历史</button>
-        <a href="/config.html" class="settings-btn">⚙️ 设置</a>
-    </div>
-    <div class="container">
-        <div class="history-list" id="historyList"></div>
-        <div class="content-panel">
-            <div class="text-panel">
-                <h2>原文 <span id="translationDirection" class="direction-tag">自动检测</span> <button class="copy-btn" id="copyOriginal">复制</button></h2>
-                <div id="originalText"></div>
+    <div class="app-container">
+        <header>
+            <h1>剪贴板翻译</h1>
+            <div class="header-controls">
+                <button id="refreshBtn" class="btn btn-primary">
+                    <span class="material-symbols-rounded">sync</span>
+                    刷新剪贴板
+                </button>
+                <button id="clearBtn" class="btn btn-secondary">
+                    <span class="material-symbols-rounded">delete</span>
+                    清空历史
+                </button>
+                <a href="/config.html" class="btn btn-icon settings-btn">
+                    <span class="material-symbols-rounded">settings</span>
+                </a>
             </div>
-            <div class="text-panel">
-                <h2>译文 <button class="copy-btn" id="copyTranslated">复制</button></h2>
-                <div id="translatedText"></div>
+        </header>
+
+        <main>
+            <aside class="history-panel">
+                <div class="panel-header">
+                    <h2>翻译历史</h2>
+                </div>
+                <div class="history-list" id="historyList"></div>
+            </aside>
+
+            <section class="content-panel">
+                <div class="text-panel original">
+                    <div class="panel-header">
+                        <h2>原文</h2>
+                        <div class="panel-actions">
+                            <span id="translationDirection" class="direction-tag">自动检测</span>
+                            <button class="btn btn-icon copy-btn" id="copyOriginal" title="复制原文">
+                                <span class="material-symbols-rounded">content_copy</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="panel-content" id="originalText"></div>
+                </div>
+
+                <div class="text-panel translated">
+                    <div class="panel-header">
+                        <h2>译文</h2>
+                        <div class="panel-actions">
+                            <button class="btn btn-icon copy-btn" id="copyTranslated" title="复制译文">
+                                <span class="material-symbols-rounded">content_copy</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="panel-content" id="translatedText"></div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="footer-info">
+                <p>使用 Ctrl+Alt+T 快速触发翻译</p>
             </div>
-        </div>
+        </footer>
     </div>
+
+    <!-- 成功提示框 -->
+    <div class="toast" id="copyToast">已复制到剪贴板</div>
+
     <script src="/js/app.js"></script>
 </body>
 </html>

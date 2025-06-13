@@ -367,16 +367,6 @@ func setupRouter() *gin.Engine {
     return r
 }
 
-// 确保静态文件目录存在
-func ensureStaticDir() {
-    dirs := []string{"static", "static/css", "static/js"}
-    for _, dir := range dirs {
-        if err := os.MkdirAll(dir, 0755); err != nil {
-            log.Fatal("创建目录失败: %s, %v", dir, err)
-        }
-    }
-}
-
 // 检测输入文本的主要语言
 func isChineseText(text string) bool {
     // 统计中文和英文字符的数量
@@ -471,9 +461,6 @@ func main() {
         log.Fatal("加载配置文件失败: %v", err)
     }
     log.Info("配置加载成功")
-
-    // 确保静态文件目录存在
-    ensureStaticDir()
 
     // 初始化Gemini客户端
     apiKey := os.Getenv("GEMINI_API_KEY")
