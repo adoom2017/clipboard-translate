@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // SQLiteDB SQLite数据库实现
@@ -27,8 +27,7 @@ func NewSQLiteDB(dbPath string) (*SQLiteDB, error) {
 func (s *SQLiteDB) Initialize() error {
 	var err error
 
-	// 打开数据库连接
-	s.db, err = sql.Open("sqlite3", s.dbPath+"?_journal=WAL&_timeout=5000&_fk=true")
+	s.db, err = sql.Open("sqlite", s.dbPath)
 	if err != nil {
 		return fmt.Errorf("无法打开SQLite数据库: %w", err)
 	}
@@ -37,14 +36,14 @@ func (s *SQLiteDB) Initialize() error {
 	s.db.SetMaxOpenConns(1) // SQLite只支持单连接
 	s.db.SetMaxIdleConns(1)
 
-	// 创建表结构
+	// 创建表结构 - 使用 INTEGER 类型存储时间戳（秒）
 	_, err = s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS history (
 			id TEXT PRIMARY KEY,
 			original TEXT NOT NULL,
 			translated TEXT NOT NULL,
 			direction TEXT NOT NULL,
-			timestamp DATETIME NOT NULL
+			timestamp INTEGER NOT NULL  -- 存储 Unix 时间戳（秒）
 		);
 		CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
 	`)
@@ -66,13 +65,16 @@ func (s *SQLiteDB) Close() error {
 
 // AddHistoryItem 添加新的翻译历史记录
 func (s *SQLiteDB) AddHistoryItem(item *HistoryItem) error {
+	// 将时间转换为 Unix 时间戳（秒）
+	unixTimestamp := item.Timestamp.Unix()
+
 	_, err := s.db.Exec(
 		"INSERT INTO history (id, original, translated, direction, timestamp) VALUES (?, ?, ?, ?, ?)",
 		item.ID,
 		item.Original,
 		item.Translated,
 		item.Direction,
-		item.Timestamp,
+		unixTimestamp, // 存储为秒
 	)
 
 	return err
@@ -90,18 +92,15 @@ func (s *SQLiteDB) GetHistoryItems() ([]*HistoryItem, error) {
 
 	for rows.Next() {
 		item := &HistoryItem{}
-		var timestamp string
+		var timestamp int64 // 使用 int64 类型读取 Unix 时间戳
 
 		err := rows.Scan(&item.ID, &item.Original, &item.Translated, &item.Direction, &timestamp)
 		if err != nil {
 			return nil, err
 		}
 
-		item.Timestamp, err = time.Parse("2006-01-02 15:04:05", timestamp)
-		if err != nil {
-			// 如果解析失败，使用当前时间
-			item.Timestamp = time.Now()
-		}
+		// 将 Unix 时间戳转换回 time.Time
+		item.Timestamp = time.Unix(timestamp, 0)
 
 		items = append(items, item)
 	}
@@ -138,4 +137,40 @@ func (s *SQLiteDB) PruneHistory(keepCount int) error {
 	`, keepCount)
 
 	return err
+}
+
+// GetHistoryByDateRange 根据日期范围查询历史记录
+func (s *SQLiteDB) GetHistoryByDateRange(start, end time.Time) ([]*HistoryItem, error) {
+    // 转换为 Unix 时间戳
+    startTS := start.Unix()
+    endTS := end.Unix()
+
+    rows, err := s.db.Query(
+        "SELECT id, original, translated, direction, timestamp FROM history WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC",
+        startTS,
+        endTS,
+    )
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var items []*HistoryItem
+
+	for rows.Next() {
+		item := &HistoryItem{}
+		var timestamp int64 // 使用 int64 类型读取 Unix 时间戳
+
+		err := rows.Scan(&item.ID, &item.Original, &item.Translated, &item.Direction, &timestamp)
+		if err != nil {
+			return nil, err
+		}
+
+		// 将 Unix 时间戳转换回 time.Time
+		item.Timestamp = time.Unix(timestamp, 0)
+
+		items = append(items, item)
+	}
+
+	return items, nil
 }

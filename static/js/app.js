@@ -8,7 +8,7 @@ function loadHistory() {
             const historyList = document.getElementById('historyList');
             historyList.innerHTML = '';
 
-            data.reverse().forEach(item => {
+            data.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'history-item';
                 if (item.id === selectedId) {

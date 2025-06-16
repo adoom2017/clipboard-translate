@@ -553,8 +553,8 @@ func main() {
 	// 初始化Gemini客户端
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		log.Warn("未设置环境变量 GEMINI_API_KEY，将使用默认测试密钥")
-		apiKey = "YOUR_DEFAULT_API_KEY" // 这里需要替换为你的API密钥
+		log.Warn("未设置环境变量 GEMINI_API_KEY，将使用配置文件中的密钥")
+		apiKey = config.GetConfig().API.GeminiKey
 	}
 
 	ctx := context.Background()
