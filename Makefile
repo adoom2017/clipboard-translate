@@ -1,3 +1,6 @@
+SHELL := cmd.exe
+.SHELLFLAGS := /c
+
 # 项目基本配置
 PROJECT_NAME := clipboard-translate
 VERSION := 1.0.0
@@ -25,7 +28,7 @@ clean:
 
 # 创建构建目录结构
 init:
-	@echo 创建构建目录结构...
+	@echo Creating directory structure...
 	@if not exist $(BUILD_DIR) mkdir $(BUILD_DIR)
 	@if not exist $(BUILD_DIR)\logs mkdir $(BUILD_DIR)\logs
 	@if not exist $(BUILD_DIR)\$(STATIC_DIR) mkdir $(BUILD_DIR)\$(STATIC_DIR)
