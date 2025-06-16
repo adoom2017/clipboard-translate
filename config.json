@@ -26,11 +26,14 @@
   },
   "ui": {
     "port": 8080,
-    "start_minimized": false,
-    "theme": "dark"
+    "theme": "light"
   },
   "system": {
     "auto_start": true,
     "max_history_items": 100
+  },
+  "database": {
+    "type": "sqlite",
+    "connection": "clipboard-translate.db"
   }
 }

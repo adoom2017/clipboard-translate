@@ -51,6 +51,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.5 // indirect
 	github.com/lxn/walk v0.0.0-20210112085537-c389da54e794
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e
+	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	github.com/robotn/gohook v0.42.2 // indirect
 	github.com/vcaesar/keycode v0.10.1 // indirect

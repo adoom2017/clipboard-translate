@@ -118,6 +118,26 @@
                 </div>
             </div>
 
+            <!-- 数据库设置 -->
+            <div class="config-section">
+                <h2>数据库设置</h2>
+                <div class="form-group">
+                    <label for="dbType">数据库类型</label>
+                    <select id="dbType" name="dbType">
+                        <option value="sqlite">SQLite</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dbConnection">数据库连接</label>
+                    <input type="text" id="dbConnection" name="dbConnection" placeholder="clipboard-translate.db">
+                </div>
+                <div class="form-group">
+                    <label for="maxHistory">最大历史记录数</label>
+                    <input type="number" id="maxHistory" name="maxHistory" min="10" max="1000" step="10">
+                </div>
+                <p class="note">注意：修改数据库设置后需要重启应用才能完全生效</p>
+            </div>
+
             <div class="actions">
                 <button id="save-btn" class="primary-btn">保存设置</button>
                 <button id="cancel-btn">取消</button>

@@ -68,6 +68,11 @@ async function loadConfig() {
         document.getElementById('auto-start').checked = config.system.auto_start;
         document.getElementById('max-history').value = config.system.max_history_items;
 
+        // 数据库设置
+        document.getElementById('dbType').value = config.database.type || 'sqlite';
+        document.getElementById('dbConnection').value = config.database.connection || 'clipboard-translate.db';
+        document.getElementById('maxHistory').value = config.database.max_history || 100;
+
     } catch (error) {
         console.error('Error loading config:', error);
     }
@@ -105,6 +110,11 @@ async function saveConfig() {
             system: {
                 auto_start: document.getElementById('auto-start').checked,
                 max_history_items: parseInt(document.getElementById('max-history').value)
+            },
+            database: {
+                type: document.getElementById('dbType').value,
+                connection: document.getElementById('dbConnection').value,
+                max_history: parseInt(document.getElementById('maxHistory').value)
             }
         };
 

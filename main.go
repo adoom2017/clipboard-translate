@@ -20,25 +20,19 @@ import (
 
 	"clipboard-translate/config"
 	"clipboard-translate/constants"
+	"clipboard-translate/database"
 	log "clipboard-translate/utils/log"
 )
 
-// 历史记录项
-type HistoryItem struct {
-    Original   string `json:"original"`
-    Translated string `json:"translated"`
-    Timestamp  string `json:"timestamp"`
-    ID         string `json:"id"`
-    Direction  string `json:"direction"` // 翻译方向
-}
-
 var (
-    historyItems  = make([]*HistoryItem, 0)
-    historyMutex  sync.RWMutex
     geminiClient  *gemini.Client
     staticDirPath string // 全局变量存储静态文件目录路径
+    db            database.Database // 数据库实例
+    dbMutex       sync.Mutex // 数据库操作互斥锁
 )
 
+
+// 翻译函数
 func translateWithGemini(ctx context.Context, client *gemini.Client, text string) (string, error) {
     // 检测输入文本语言
     isChinese := isChineseText(text)
@@ -93,26 +87,46 @@ func translateWithGemini(ctx context.Context, client *gemini.Client, text string
 
 // 添加历史项
 func addHistoryItem(original, translated string) {
-    timestamp := time.Now().Format("2006-01-02 15:04:05")
-    id := fmt.Sprintf("%d", time.Now().UnixNano())
-
     // 确定翻译方向
     direction := "中 → 英"
     if !isChineseText(original) {
         direction = "英 → 中"
     }
 
-    newItem := &HistoryItem{
+    // 创建历史记录项
+    newItem := &database.HistoryItem{
         Original:   original,
         Translated: translated,
-        Timestamp:  timestamp,
-        ID:         id,
+        Timestamp:  time.Now(),
+        ID:         fmt.Sprintf("%d", time.Now().UnixNano()),
         Direction:  direction,
     }
 
-    historyMutex.Lock()
-    historyItems = append(historyItems, newItem)
-    historyMutex.Unlock()
+    // 使用互斥锁保护数据库操作
+    dbMutex.Lock()
+    defer dbMutex.Unlock()
+
+    // 添加到数据库
+    if err := db.AddHistoryItem(newItem); err != nil {
+        log.Error("添加历史记录失败: %v", err)
+        return
+    }
+
+    // 检查是否需要清理旧记录
+    maxHistory := config.GetConfig().System.MaxHistoryItems
+    if maxHistory > 0 {
+        count, err := db.GetHistoryCount()
+        if err != nil {
+            log.Error("获取历史记录数量失败: %v", err)
+            return
+        }
+
+        if count > maxHistory {
+            if err := db.PruneHistory(maxHistory); err != nil {
+                log.Error("清理旧历史记录失败: %v", err)
+            }
+        }
+    }
 }
 
 // 注册热键
@@ -291,17 +305,29 @@ func setupRouter() *gin.Engine {
     {
         // 获取历史记录
         api.GET("/history", func(c *gin.Context) {
-            historyMutex.RLock()
-            defer historyMutex.RUnlock()
+            dbMutex.Lock()
+            defer dbMutex.Unlock()
 
-            c.JSON(http.StatusOK, historyItems)
+            items, err := db.GetHistoryItems()
+            if err != nil {
+                log.Error("获取历史记录失败: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "获取历史记录失败"})
+                return
+            }
+
+            c.JSON(http.StatusOK, items)
         })
 
         // 清空历史记录
         api.POST("/clear", func(c *gin.Context) {
-            historyMutex.Lock()
-            historyItems = []*HistoryItem{}
-            historyMutex.Unlock()
+            dbMutex.Lock()
+            defer dbMutex.Unlock()
+
+            if err := db.ClearHistory(); err != nil {
+                log.Error("清空历史记录失败: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "清空历史记录失败"})
+                return
+            }
 
             c.Status(http.StatusOK)
         })
@@ -327,6 +353,8 @@ func setupRouter() *gin.Engine {
 
             // 保存旧热键设置以检查是否需要重新注册
             oldTranslateHotkey := config.GetConfig().Hotkeys["translate"]
+            oldDBType := config.GetConfig().Database.Type
+            oldDBConn := config.GetConfig().Database.Connection
 
             // 保存到文件
             if err := config.SaveConfig(&newConfig); err != nil {
@@ -343,6 +371,44 @@ func setupRouter() *gin.Engine {
                 // 注册新热键
                 if !registerHotKey() {
                     log.Error("重新注册热键失败")
+                }
+            }
+
+            // 检查数据库配置是否已更改
+            newDBType := config.GetConfig().Database.Type
+            newDBConn := config.GetConfig().Database.Connection
+            if newDBType != oldDBType || newDBConn != oldDBConn {
+                log.Info("数据库配置已更改，重新初始化数据库连接")
+
+                dbMutex.Lock()
+                defer dbMutex.Unlock()
+
+                // 关闭旧连接
+                if db != nil {
+                    if err := db.Close(); err != nil {
+                        log.Error("关闭数据库连接失败: %v", err)
+                    }
+                }
+
+                // 创建新连接
+                var err error
+                db, err = database.New(database.DBConfig{
+                    Type:        newDBType,
+                    Connection:  newDBConn,
+                    MaxHistory:  newConfig.System.MaxHistoryItems,
+                })
+
+                if err != nil {
+                    log.Error("创建数据库连接失败: %v", err)
+                    c.JSON(http.StatusInternalServerError, gin.H{"error": "重新初始化数据库失败"})
+                    return
+                }
+
+                // 初始化数据库
+                if err := db.Initialize(); err != nil {
+                    log.Error("初始化数据库失败: %v", err)
+                    c.JSON(http.StatusInternalServerError, gin.H{"error": "初始化数据库失败"})
+                    return
                 }
             }
 
@@ -446,6 +512,9 @@ func main() {
     // 设置日志
     logDir := "./logs"
     logPath := filepath.Join(logDir, "clipboard-translate.log")
+    if _, err := os.Stat(logDir); os.IsNotExist(err) {
+        os.Mkdir(logDir, 0755)
+    }
 
     // 设置日志配置
     log.SetLogConfig(log.LogConfig{
@@ -462,10 +531,31 @@ func main() {
     }
     log.Info("配置加载成功")
 
+    // 初始化数据库连接
+    dbConfig := database.DBConfig{
+        Type:       config.GetConfig().Database.Type,
+        Connection: config.GetConfig().Database.Connection,
+        MaxHistory: config.GetConfig().System.MaxHistoryItems,
+    }
+
+    // 创建数据库实例
+    db, err = database.New(dbConfig)
+    if err != nil {
+        log.Fatal("创建数据库连接失败: %v", err)
+    }
+
+    // 初始化数据库
+    if err := db.Initialize(); err != nil {
+        log.Fatal("初始化数据库失败: %v", err)
+    }
+    log.Info("数据库初始化成功: %s", dbConfig.Type)
+    defer db.Close()
+
     // 初始化Gemini客户端
     apiKey := os.Getenv("GEMINI_API_KEY")
     if apiKey == "" {
-        apiKey = config.GetConfig().Api.GeminiKey
+        log.Warn("未设置环境变量 GEMINI_API_KEY，将使用默认测试密钥")
+        apiKey = "YOUR_DEFAULT_API_KEY" // 这里需要替换为你的API密钥
     }
 
     ctx := context.Background()
