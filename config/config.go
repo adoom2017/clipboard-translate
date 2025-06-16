@@ -17,11 +17,11 @@ var (
 // Config 应用配置
 type Config struct {
 	Hotkeys     map[string]HotkeyConfig `json:"hotkeys"`
-	API         APIConfig                `json:"api"`
+	API         APIConfig               `json:"api"`
 	Translation TranslationConfig       `json:"translation"`
-	UI          UIConfig                 `json:"ui"`
-	System      SystemConfig             `json:"system"`
-	Database    DatabaseConfig           `json:"database"`
+	UI          UIConfig                `json:"ui"`
+	System      SystemConfig            `json:"system"`
+	Database    DatabaseConfig          `json:"database"`
 }
 
 // HotkeyConfig 热键配置
@@ -57,8 +57,8 @@ type SystemConfig struct {
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Type        string `json:"type"`
-	Connection  string `json:"connection"`
+	Type       string `json:"type"`
+	Connection string `json:"connection"`
 }
 
 // LoadConfig 加载配置文件
@@ -213,8 +213,8 @@ func GetConfig() *Config {
 					MaxHistoryItems: 100,
 				},
 				Database: DatabaseConfig{
-					Type:        "sqlite",
-					Connection:  "clipboard-translate.db",
+					Type:       "sqlite",
+					Connection: "clipboard-translate.db",
 				},
 			}
 		}
