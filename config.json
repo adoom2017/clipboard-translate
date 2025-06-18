@@ -16,7 +16,10 @@
     }
   },
   "api": {
-    "gemini_key": "",
+    "provider": "gemini",
+    "model": "gemini-2.0-flash",
+    "api_key": "",
+    "base_url": "https://api.gemini.google.com/v1",
     "use_env_key": true
   },
   "translation": {

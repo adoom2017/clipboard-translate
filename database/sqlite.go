@@ -141,21 +141,21 @@ func (s *SQLiteDB) PruneHistory(keepCount int) error {
 
 // GetHistoryByDateRange 根据日期范围查询历史记录
 func (s *SQLiteDB) GetHistoryByDateRange(start, end time.Time) ([]*HistoryItem, error) {
-    // 转换为 Unix 时间戳
-    startTS := start.Unix()
-    endTS := end.Unix()
+	// 转换为 Unix 时间戳
+	startTS := start.Unix()
+	endTS := end.Unix()
 
-    rows, err := s.db.Query(
-        "SELECT id, original, translated, direction, timestamp FROM history WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC",
-        startTS,
-        endTS,
-    )
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	rows, err := s.db.Query(
+		"SELECT id, original, translated, direction, timestamp FROM history WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC",
+		startTS,
+		endTS,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    var items []*HistoryItem
+	var items []*HistoryItem
 
 	for rows.Next() {
 		item := &HistoryItem{}

@@ -15,9 +15,8 @@ import (
 	"github.com/atotto/clipboard"
 	"github.com/gin-gonic/gin"
 	"github.com/go-toast/toast"
-	gemini "github.com/google/generative-ai-go/genai"
-	"google.golang.org/api/option"
 
+	"clipboard-translate/ai"
 	"clipboard-translate/config"
 	"clipboard-translate/constants"
 	"clipboard-translate/database"
@@ -25,63 +24,19 @@ import (
 )
 
 var (
-	geminiClient  *gemini.Client
+	aiClient      ai.AIClient       // 替换 geminiClient
 	staticDirPath string            // 全局变量存储静态文件目录路径
 	db            database.Database // 数据库实例
 	dbMutex       sync.Mutex        // 数据库操作互斥锁
 )
 
 // 翻译函数
-func translateWithGemini(ctx context.Context, client *gemini.Client, text string) (string, error) {
+func translateWithAI(ctx context.Context, text string) (string, error) {
 	// 检测输入文本语言
 	isChinese := isChineseText(text)
 
-	// 根据语言设置不同的翻译指令
-	var systemPrompt string
-	if isChinese {
-		systemPrompt = "你是一个专业的中英文翻译助手，请将用户输入的中文内容翻译成英文，只需给出翻译结果，不要输出多余内容。"
-	} else {
-		systemPrompt = "你是一个专业的英中文翻译助手，请将用户输入的英文内容翻译成中文，只需给出翻译结果，不要输出多余内容。"
-	}
-
-	model := client.GenerativeModel("models/gemini-2.0-flash")
-
-	systemInstruction := &gemini.Content{
-		Parts: []gemini.Part{
-			gemini.Text(systemPrompt),
-		},
-		Role: "system",
-	}
-
-	model.SystemInstruction = systemInstruction
-
-	// 最大重试次数
-	maxRetries := 3
-	var lastErr error
-
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		// 如果不是第一次尝试，等待一小段时间
-		if attempt > 0 {
-			log.Info("翻译请求失败，正在进行第 %d 次重试...", attempt+1)
-			time.Sleep(time.Duration(attempt) * time.Second)
-		}
-
-		resp, err := model.GenerateContent(ctx, gemini.Text(text))
-		if err != nil {
-			lastErr = err
-			log.Error("翻译API调用失败: %v", err)
-			continue
-		}
-
-		if len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
-			if responseText, ok := resp.Candidates[0].Content.Parts[0].(gemini.Text); ok {
-				return string(responseText), nil
-			}
-		}
-	}
-
-	// 所有重试都失败了
-	return "", fmt.Errorf("翻译失败，已重试%d次: %v", maxRetries, lastErr)
+	// 使用AI客户端进行翻译
+	return aiClient.Translate(ctx, text, isChinese)
 }
 
 // 添加历史项
@@ -154,7 +109,7 @@ func unregisterHotKey() {
 }
 
 // 触发翻译
-func triggerTranslation(ctx context.Context, client *gemini.Client) {
+func triggerTranslation(ctx context.Context) {
 	// 获取当前剪贴板内容
 	content, err := clipboard.ReadAll()
 	if err != nil {
@@ -174,8 +129,8 @@ func triggerTranslation(ctx context.Context, client *gemini.Client) {
 		translationDirection = "英 → 中"
 	}
 
-	log.Info("开始翻译剪贴板内容... 方向: %s", translationDirection)
-	translated, err := translateWithGemini(ctx, client, content)
+	log.Info("开始翻译剪贴板内容... 方向: %s, 使用: %s", translationDirection, aiClient.GetName())
+	translated, err := translateWithAI(ctx, content)
 	if err != nil {
 		log.Error("翻译失败: %v", err)
 		translated = "翻译失败: " + err.Error()
@@ -183,7 +138,7 @@ func triggerTranslation(ctx context.Context, client *gemini.Client) {
 
 	notification := toast.Notification{
 		AppID:   "剪贴板翻译",
-		Title:   fmt.Sprintf("翻译结果 (%s)", translationDirection),
+		Title:   fmt.Sprintf("翻译结果 (%s - %s)", aiClient.GetName(), translationDirection),
 		Message: translated,
 	}
 
@@ -198,7 +153,7 @@ func triggerTranslation(ctx context.Context, client *gemini.Client) {
 }
 
 // 监听热键
-func listenHotkey(ctx context.Context, client *gemini.Client) {
+func listenHotkey(ctx context.Context) {
 	// 注册热键
 	if !registerHotKey() {
 		log.Error("注册热键失败，按 Ctrl+Alt+T 触发翻译可能不可用")
@@ -245,7 +200,7 @@ func listenHotkey(ctx context.Context, client *gemini.Client) {
 		// 检查是否是热键消息
 		if msg.UINT == 0x0312 /* WM_HOTKEY */ && msg.WPARAM == uintptr(constants.HOTKEY_ID) {
 			log.Info("检测到热键 Ctrl+Alt+T，开始翻译...")
-			go triggerTranslation(ctx, client)
+			go triggerTranslation(ctx)
 		}
 
 		// 处理消息
@@ -333,7 +288,7 @@ func setupRouter() *gin.Engine {
 
 		// 手动刷新剪贴板
 		api.POST("/refresh", func(c *gin.Context) {
-			go triggerTranslation(context.Background(), geminiClient)
+			go triggerTranslation(context.Background())
 			c.Status(http.StatusOK)
 		})
 
@@ -550,36 +505,38 @@ func main() {
 	log.Info("数据库初始化成功: %s", dbConfig.Type)
 	defer db.Close()
 
-	// 初始化Gemini客户端
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" {
-		log.Warn("未设置环境变量 GEMINI_API_KEY，将使用配置文件中的密钥")
-		apiKey = config.GetConfig().API.GeminiKey
+	// 初始化AI客户端
+	apiConfig := config.GetConfig().API
+
+	// 根据配置选择API密钥
+	var apiKey string
+	if apiConfig.UseEnvKey {
+		apiKey = os.Getenv("AI_API_KEY")
+	} else {
+		apiKey = apiConfig.APIKey
 	}
 
-	ctx := context.Background()
-	client, err := gemini.NewClient(ctx, option.WithAPIKey(apiKey))
+	// 创建AI客户端
+	aiClientConfig := ai.AIConfig{
+		Provider: apiConfig.Provider,
+		APIKey:   apiKey,
+		Model:    apiConfig.Model,
+		BaseURL:  apiConfig.BaseURL,
+	}
+
+	aiClient, err = ai.NewAIClient(aiClientConfig)
 	if err != nil {
-		log.Fatal("Gemini client 初始化失败: %v", err)
+		log.Fatal("AI客户端初始化失败: %v", err)
 	}
-	geminiClient = client
+	defer aiClient.Close()
 
-	// 检查API可用性及模型列表
-	log.Info("正在检查可用的模型...")
-	modelInfo := client.ListModels(ctx)
-	for {
-		m, err := modelInfo.Next()
-		if err != nil {
-			break
-		}
-		log.Info("可用模型: %s", m.Name)
-	}
+	log.Info("AI客户端初始化成功: %s", aiClient.GetName())
 
 	// 使用配置中的端口
 	port := config.GetConfig().UI.Port
 
 	// 启动热键监听
-	go listenHotkey(ctx, client)
+	go listenHotkey(context.Background())
 
 	// 设置路由
 	router := setupRouter()

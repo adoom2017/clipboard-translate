@@ -32,8 +32,11 @@ type HotkeyConfig struct {
 
 // APIConfig API相关配置
 type APIConfig struct {
-	GeminiKey string `json:"gemini_key"`
-	UseEnvKey bool   `json:"use_env_key"`
+	Provider  string `json:"provider"`    // AI提供商: gemini, openai, claude, ollama
+	APIKey    string `json:"api_key"`     // AI厂商的访问密钥
+	Model     string `json:"model"`       // 使用的模型
+	BaseURL   string `json:"base_url"`    // 自定义API端点
+	UseEnvKey bool   `json:"use_env_key"` // 是否使用环境变量
 }
 
 // TranslationConfig 翻译相关配置
@@ -81,7 +84,7 @@ func LoadConfig() error {
 				},
 			},
 			API: APIConfig{
-				GeminiKey: "",
+				APIKey: "",
 				UseEnvKey: true,
 			},
 			Translation: TranslationConfig{
@@ -147,7 +150,7 @@ func LoadConfig() error {
 	}
 
 	// API配置
-	if config.API.GeminiKey == "" && !config.API.UseEnvKey {
+	if config.API.APIKey == "" && !config.API.UseEnvKey {
 		config.API.UseEnvKey = true
 	}
 
@@ -196,7 +199,7 @@ func GetConfig() *Config {
 					},
 				},
 				API: APIConfig{
-					GeminiKey: "",
+					APIKey: "",
 					UseEnvKey: true,
 				},
 				Translation: TranslationConfig{
