@@ -32,11 +32,9 @@ var (
 
 // 翻译函数
 func translateWithAI(ctx context.Context, text string) (string, error) {
-	// 检测输入文本语言
-	isChinese := isChineseText(text)
 
 	// 使用AI客户端进行翻译
-	return aiClient.Translate(ctx, text, isChinese)
+	return aiClient.Translate(ctx, text)
 }
 
 // 添加历史项

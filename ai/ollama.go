@@ -51,8 +51,8 @@ func NewOllamaClient(config AIConfig) (*OllamaClient, error) {
 }
 
 // Translate 实现翻译功能
-func (o *OllamaClient) Translate(ctx context.Context, text string, isChinese bool) (string, error) {
-	prompt := fmt.Sprintf("%s\n\n%s", getSystemPrompt(isChinese), text)
+func (o *OllamaClient) Translate(ctx context.Context, text string) (string, error) {
+	prompt := fmt.Sprintf("%s\n\n%s", getSystemPrompt(), text)
 
 	request := OllamaRequest{
 		Model:  o.model,

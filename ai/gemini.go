@@ -40,12 +40,12 @@ func NewGeminiClient(config AIConfig) (*GeminiClient, error) {
 }
 
 // Translate 实现翻译功能
-func (g *GeminiClient) Translate(ctx context.Context, text string, isChinese bool) (string, error) {
+func (g *GeminiClient) Translate(ctx context.Context, text string) (string, error) {
 	model := g.client.GenerativeModel(g.model)
 
 	systemInstruction := &gemini.Content{
 		Parts: []gemini.Part{
-			gemini.Text(getSystemPrompt(isChinese)),
+			gemini.Text(getSystemPrompt()),
 		},
 		Role: "system",
 	}

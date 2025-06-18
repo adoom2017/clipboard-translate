@@ -73,13 +73,13 @@ func NewOpenAIClient(config AIConfig) (*OpenAIClient, error) {
 }
 
 // Translate 实现翻译功能
-func (o *OpenAIClient) Translate(ctx context.Context, text string, isChinese bool) (string, error) {
+func (o *OpenAIClient) Translate(ctx context.Context, text string) (string, error) {
 	request := OpenAIRequest{
 		Model: o.model,
 		Messages: []Message{
 			{
 				Role:    "system",
-				Content: getSystemPrompt(isChinese),
+				Content: getSystemPrompt(),
 			},
 			{
 				Role:    "user",

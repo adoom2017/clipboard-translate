@@ -70,11 +70,11 @@ func NewClaudeClient(config AIConfig) (*ClaudeClient, error) {
 }
 
 // Translate 实现翻译功能
-func (c *ClaudeClient) Translate(ctx context.Context, text string, isChinese bool) (string, error) {
+func (c *ClaudeClient) Translate(ctx context.Context, text string) (string, error) {
 	request := ClaudeRequest{
 		Model:     c.model,
 		MaxTokens: 1000,
-		System:    getSystemPrompt(isChinese),
+		System:    getSystemPrompt(),
 		Messages: []ClaudeMessage{
 			{
 				Role:    "user",
@@ -114,7 +114,7 @@ func (c *ClaudeClient) Translate(ctx context.Context, text string, isChinese boo
 	}
 
 	if claudeResp.Error != nil {
-		return "", fmt.Errorf("Claude API错误: %s", claudeResp.Error.Message)
+		return "", fmt.Errorf("claude api错误: %s", claudeResp.Error.Message)
 	}
 
 	if len(claudeResp.Content) == 0 {
