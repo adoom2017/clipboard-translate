@@ -44,15 +44,34 @@
       "main.js",
       "preload.js",
       "renderer.js",
-      "assets/**/*",
-      "node_modules/**/*"
+      "assets/icon.png",
+      "node_modules/auto-launch/**/*",
+      "!node_modules/**/*.md",
+      "!node_modules/**/*.txt",
+      "!node_modules/**/LICENSE*",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/README*",
+      "!node_modules/**/.git*",
+      "!node_modules/**/test/**",
+      "!node_modules/**/tests/**",
+      "!node_modules/**/docs/**",
+      "!node_modules/**/examples/**",
+      "!node_modules/**/*.d.ts",
+      "!node_modules/**/*.map"
     ],
     "extraResources": [
       {
         "from": "../build",
-        "to": "app"
+        "to": "app",
+        "filter": [
+          "**/*",
+          "!logs/**/*"
+        ]
       }
     ],
+    "compression": "maximum",
+    "removePackageScripts": true,
+    "removePackageKeywords": true,
     "win": {
       "target": [
         {
@@ -63,7 +82,15 @@
         }
       ],
       "icon": "assets/icon.png",
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "files": [
+        "!node_modules/electron/dist/ffmpeg.dll",
+        "!node_modules/electron/dist/libGLESv2.dll",
+        "!node_modules/electron/dist/libEGL.dll",
+        "!node_modules/electron/dist/vk_swiftshader.dll",
+        "!node_modules/electron/dist/vulkan-1.dll",
+        "!node_modules/electron/dist/d3dcompiler_47.dll"
+      ]
     },
     "mac": {
       "target": "dmg",
@@ -87,7 +114,8 @@
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "剪贴板翻译",
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": true
     }
   }
 }
