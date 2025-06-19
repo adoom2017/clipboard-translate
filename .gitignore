@@ -1,2 +1,4 @@
 build
 logs
+dist
+node_modules

@@ -13,7 +13,7 @@ GOARCH := amd64
 # GO_BUILD_FLAGS := -ldflags="-s -w -H windowsgui -X main.Version=$(VERSION)"
 GO_BUILD_FLAGS := -ldflags="-s -w -X main.Version=$(VERSION)"
 
-.PHONY: all clean build run debug release help resources
+.PHONY: all clean build run debug release help resources electron-dev electron-build electron-dist
 
 # Default target
 all: build
@@ -68,33 +68,51 @@ release: clean
 	@echo Release version build complete!
 
 # Create a simple README
-create-readme: set-utf8 init
-	@echo # $(PROJECT_NAME) > $(BUILD_DIR)\README.txt
-	@echo. >> $(BUILD_DIR)\README.txt
-	@echo Version: $(VERSION) >> $(BUILD_DIR)\README.txt
-	@echo. >> $(BUILD_DIR)\README.txt
-	@echo Usage: >> $(BUILD_DIR)\README.txt
-	@echo 1. Run $(PROJECT_NAME).exe >> $(BUILD_DIR)\README.txt
-	@echo 2. Use Ctrl+Alt+T hotkey to trigger translation >> $(BUILD_DIR)\README.txt
-	@echo 3. Visit http://localhost:8080 in browser to view translation history >> $(BUILD_DIR)\README.txt
-	@echo. >> $(BUILD_DIR)\README.txt
-	@echo Notes: >> $(BUILD_DIR)\README.txt
-	@echo - Ensure config.json exists in the same directory as the program >> $(BUILD_DIR)\README.txt
-	@echo - Log files are saved in the logs directory >> $(BUILD_DIR)\README.txt
+create-readme: init
+	@echo # $(PROJECT_NAME) > $(BUILD_DIR)\README.md
+	@echo. >> $(BUILD_DIR)\README.md
+	@echo Version: $(VERSION) >> $(BUILD_DIR)\README.md
+	@echo. >> $(BUILD_DIR)\README.md
+	@echo Usage: >> $(BUILD_DIR)\README.md
+	@echo 1. Run $(PROJECT_NAME).exe >> $(BUILD_DIR)\README.md
+	@echo 2. Use Ctrl+Alt+T hotkey to trigger translation >> $(BUILD_DIR)\README.md
+	@echo 3. Visit http://localhost:8080 in browser to view translation history >> $(BUILD_DIR)\README.md
+	@echo. >> $(BUILD_DIR)\README.md
+	@echo Notes: >> $(BUILD_DIR)\README.md
+	@echo - Ensure config.json exists in the same directory as the program >> $(BUILD_DIR)\README.md
+	@echo - Log files are saved in the logs directory >> $(BUILD_DIR)\README.md
 	@echo README file created
 
 # Package everything
-package: set-utf8 resources build create-readme
+package: resources build create-readme
 	@echo Program packaging complete!
 
-# Help information
+# Electron开发模式
+electron-dev: package
+	@echo "Starting Electron in development mode..."
+	@cd electron && npm install && npm run dev
+
+# 构建Electron应用
+electron-build: package
+	@echo "Building Electron application..."
+	@cd electron && npm install && npm run build
+
+# 分发Electron应用
+electron-dist: package
+	@echo "Creating Electron distribution..."
+	@cd electron && npm install && npm run dist
+
+# 帮助信息更新
 help: set-utf8
 	@echo Available commands:
-	@echo   make          - Default command, builds the application
-	@echo   make clean    - Clean build directory
-	@echo   make build    - Compile application
-	@echo   make run      - Compile and run application
-	@echo   make debug    - Build debug version (no optimization)
-	@echo   make release  - Build release version
-	@echo   make package  - Build complete application package
-	@echo   make help     - Display this help information
+	@echo   make              - Default command, builds the application
+	@echo   make clean        - Clean build directory
+	@echo   make build        - Compile application
+	@echo   make run          - Compile and run application
+	@echo   make debug        - Build debug version (no optimization)
+	@echo   make release      - Build release version
+	@echo   make package      - Build complete application package
+	@echo   make electron-dev - Start Electron in development mode
+	@echo   make electron-build - Build Electron application
+	@echo   make electron-dist - Create Electron distribution
+	@echo   make help         - Display this help information
