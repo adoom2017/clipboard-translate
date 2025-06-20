@@ -23,7 +23,7 @@
     "ai",
     "desktop"
   ],
-  "author": "Your Name",
+  "author": "adoom",
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.0.0",
@@ -84,12 +84,12 @@
       "icon": "assets/icon.png",
       "requestedExecutionLevel": "asInvoker",
       "files": [
-        "!node_modules/electron/dist/ffmpeg.dll",
-        "!node_modules/electron/dist/libGLESv2.dll",
-        "!node_modules/electron/dist/libEGL.dll",
-        "!node_modules/electron/dist/vk_swiftshader.dll",
-        "!node_modules/electron/dist/vulkan-1.dll",
-        "!node_modules/electron/dist/d3dcompiler_47.dll"
+        "!node_modules/electron/dist/**/ffmpeg.dll",
+        "!node_modules/electron/dist/**/libGLESv2.dll",
+        "!node_modules/electron/dist/**/libEGL.dll",
+        "!node_modules/electron/dist/**/vk_swiftshader.dll",
+        "!node_modules/electron/dist/**/vulkan-1.dll",
+        "!node_modules/electron/dist/**/d3dcompiler_47.dll"
       ]
     },
     "mac": {
@@ -115,7 +115,10 @@
       "shortcutName": "剪贴板翻译",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "deleteAppDataOnUninstall": true
-    }
+      "deleteAppDataOnUninstall": true,
+      "displayLanguageSelector": true,
+      "installerLanguages": ["en_US", "zh_CN"]
+    },
+    "afterPack": "./scripts/afterPack.js"
   }
 }
